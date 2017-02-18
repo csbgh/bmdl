@@ -1,3 +1,14 @@
+# Add resource depency to copy changes to resource files
+set(RESOURCE_DEPENDENCY "${CMAKE_CURRENT_BINARY_DIR}/Resource.h")
+ 
+add_custom_command(OUTPUT ${RESOURCE_DEPENDENCY}
+				   COMMAND ${CMAKE_COMMAND} -E copy_directory ${BASE_DIR}/resources/ ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/resources/
+				   COMMENT "Copying Resource Files.")
+
+add_custom_target(ResourceBuild DEPENDS ${RESOURCE_DEPENDENCY})				   
+				   
+file(GLOB_RECURSE RESOURCE_FILES "${CMAKE_SOURCE_DIR}/resources/*.*")
+				   
 macro (create_example_executable name opengl directx)
 
 set (example_name ${name})
@@ -40,6 +51,7 @@ endif(${opengl})
 # Add Basic Model Static Lib
 target_include_directories(${example_full_name} PUBLIC ${BMDL_INCLUDE})
 add_dependencies(${example_full_name} BasicModel)
+add_dependencies(${example_full_name} ResourceBuild)
 target_link_libraries(${demo_full_name} BasicModel)
 
 # Link OpenGL
@@ -69,11 +81,6 @@ if(MSVC)
 
 endif(MSVC)
 
-# Add post build command to copy resources folder to output directory
-add_custom_command(TARGET ${example_full_name} POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy_directory
-                   ${BASE_DIR}/resources/ $<TARGET_FILE_DIR:${example_full_name}>/resources/)
-				  
 endmacro ()
 
 # Example : DirectX11
