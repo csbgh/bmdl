@@ -51,6 +51,7 @@ GLFWwindow* window;
 GLuint shaderID;
 Mesh testMesh;
 GLuint programID;
+UniformBufferData uniformData;
 
 std::vector<Mesh> meshList;
 
@@ -164,11 +165,6 @@ bool InitializeGraphics()
 	glDisable(GL_DEPTH_TEST);
 
 	// Create uniform buffer
-	UniformBufferData uniformData;
-	uniformData.modelViewProjection[0][0] = 1.0f;
-	uniformData.modelViewProjection[1][1] = 1.0f;
-	uniformData.modelViewProjection[2][2] = 1.0f;
-	uniformData.modelViewProjection[3][3] = 1.0f;
 	GLuint uniformBuffer = CreateBuffer(&uniformData, sizeof(UniformBufferData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
 	glBindBufferRange(GL_UNIFORM_BUFFER, 0, uniformBuffer, 0, sizeof(UniformBufferData));
 

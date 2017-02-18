@@ -164,9 +164,11 @@ struct BmVec4
 
 struct BmMat4
 {
-	BmVec4 data[4];
+	BmMat4() { data[0][0] = 1.0f; data[1][1] = 1.0f; data[2][2] = 1.0f; data[3][3] = 1.0f; }
 
 	BmVec4 & operator[](uint32_t i) { return data[i]; }
+
+	BmVec4 data[4];
 };
 
 struct BmColor32

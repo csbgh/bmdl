@@ -1,4 +1,4 @@
-//#include "bmdl.h"
+#include "bmdl.h"
 
 //BmDataNode dataBlock;
 
@@ -6,10 +6,9 @@
 
 int main()
 {
-	uint32_t BmFileID = 'B' | ('M' << 8) | ('D' << 16) | ('L' << 24);
-	std::cout << BmFileID<< "\n";
+	bmdl::LoadModel<BmVert, uint16_t>("sponza.bmf");
 	system("pause");
-	//bmdl::LoadModel<BmVert, uint16_t>("sponza.bmf");
+
 	/*BmModel* MyModel = bmdl::LoadModel("sponza.bmf");
 
 	for (uint32_t m = 0; m < 256; m++)
