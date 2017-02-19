@@ -5,14 +5,14 @@ const static char *vertSource = \
 
 	"layout(location = 0) in vec3 v_position;"
 
-	"layout(std140, binding = 0) uniform uniformData"
+	"layout(std140) uniform uniformData"
 	"{"
 		"mat4 modelViewProjection;"
 	"};"
 
 	"void main()"
 	"{"
-		"gl_Position = mul(modelViewProjection, vec4(v_position, 1));"
+		"gl_Position = modelViewProjection * vec4(v_position, 1);"
 	"}";
 
 const static char *fragSource = \
