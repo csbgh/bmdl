@@ -3,6 +3,68 @@
 #include "bmdl_common.h"
 
 // =================================
+// Basic Model : List
+// Simple dynamic array implementation
+// =================================
+
+template<typename T>
+class BmList
+{
+public:
+
+	BmList() { count = capacity = 0; data = nullptr; printf("list_constructor\n");  }
+	BmList(uint32_t size) : BmList() { reserve(size); }
+	BmList(T* newData, uint32_t length) : BmList() { setData(newData, length); }
+
+	~BmList() { if (data != nullptr) BM_FREE(data); }
+
+	typedef T* iterator;
+
+	inline T&		operator[](int32_t idx) { BM_ASSERT(idx < count); return data[idx]; }
+	inline const T&	operator[](int32_t idx) const { BM_ASSERT(idx < count); return data[idx]; }
+
+	inline void add(const T& value) { if (count == capacity) { reserve(grow(capacity + 1)); } data[count++] = value; }
+
+	inline T& last() { BM_ASSERT(count > 0); return data[count - 1]; }
+
+	inline void setData(T* newData, uint32_t length)
+	{
+		reserve(length);
+		memcpy(data, newData, sizeof(T) * length);
+		count = length;
+	}
+
+	inline void reserve(uint32_t newCapacity)
+	{
+		if (newCapacity <= capacity) return;
+
+		T* newData = (T*)BM_ALLOC(sizeof(T) * newCapacity);
+		if (data != nullptr)
+		{
+			memcpy(newData, data, sizeof(T) * capacity);
+			BM_FREE(data);
+		}
+		data = newData;
+		capacity = newCapacity;
+	}
+
+private:
+
+	inline uint32_t grow(uint32_t newSize) { return capacity != 0 ? (capacity + capacity / 2) : defaultCapacity; }
+
+public:
+
+	uint32_t count;
+	uint32_t capacity;
+	T* data;
+
+	static const uint32_t defaultCapacity = 4;
+
+};
+
+// =================================
+
+// =================================
 // Basic Model : Data Table
 // A simple hash table that only uses strings as keys because that's all we require
 // =================================
