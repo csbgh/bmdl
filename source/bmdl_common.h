@@ -149,6 +149,11 @@ struct BmVec3
 	BmVec3(float s = 0.0f) : BmVec3(s, s, s) {}
 	BmVec3(float x, float y, float z) : x(x), y(y), z(z) {}
 
+	float & operator[](uint32_t i) { return (&x)[i]; }
+
+	BmVec3 operator*(BmVec3 const & b) { return BmVec3(x * b.x, y * b.y, z * b.z); }
+	BmVec3 operator+(BmVec3 const & b) { return BmVec3(x + b.x, y + b.y, z + b.z); }
+
 	float x, y, z;
 };
 
@@ -159,12 +164,37 @@ struct BmVec4
 
 	float & operator[](uint32_t i) { return (&x)[i]; }
 
+	BmVec4 operator*(BmVec4 const & b) { return BmVec4(x * b.x,y * b.y,z * b.z, w * b.w); }
+	BmVec4 operator+(BmVec4 const & b) { return BmVec4(x + b.x, y + b.y, z + b.z, w + b.w); }
+
 	float x, y, z, w;
 };
 
 struct BmMat4
 {
 	BmMat4() { data[0][0] = 1.0f; data[1][1] = 1.0f; data[2][2] = 1.0f; data[3][3] = 1.0f; }
+	BmMat4(float v) 
+	{ 
+		for (int i = 0; i < 4; i++)
+		{
+			data[i][0] = v;
+			data[i][1] = v;
+			data[i][2] = v;
+			data[i][3] = v;
+		}
+	}
+
+	BmMat4 operator*(BmMat4& b)
+	{
+		BmMat4 result(0.0f);
+
+		result[0] = data[0] * b[0][0] + data[1] * b[0][1] + data[2] * b[0][2] + data[3] * b[0][3];
+		result[1] = data[0] * b[1][0] + data[1] * b[1][1] + data[2] * b[1][2] + data[3] * b[1][3];
+		result[2] = data[0] * b[2][0] + data[1] * b[2][1] + data[2] * b[2][2] + data[3] * b[2][3];
+		result[3] = data[0] * b[3][0] + data[1] * b[3][1] + data[2] * b[3][2] + data[3] * b[3][3];
+
+		return result;
+	}
 
 	BmVec4 & operator[](uint32_t i) { return data[i]; }
 

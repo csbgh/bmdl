@@ -11,6 +11,7 @@
 
 #define XRES    1280
 #define YRES    720
+#define DEG2RAD 0.0174533f
 
 struct Vert
 {
@@ -45,14 +46,22 @@ void	Draw(const Mesh& mesh);
 void	CreateMesh(Mesh* mesh, const void* vertexData, uint32_t vertexCount, const void* indiceData, uint32_t indiceCount, GLenum usage);
 GLuint	CreateShaderObject(const char* source, GLenum shaderType);
 GLuint	CreateBuffer(const void* data, uint32_t size, GLenum target, GLenum usage);
+void	UpdateBuffer(GLuint buffer, const void* data, uint32_t size, GLenum target, GLenum usage);
 
 static void ErrorCallback(int error, const char* description);
+static BmMat4 GetMVPMat(float fovy, float aspect, float zNear, float zFar, BmVec4 translation, float rotation);
+static BmMat4 GetRotationMat(float angle, BmVec3 axis);
 
 GLFWwindow* window;
 GLuint shaderID;
 Mesh testMesh;
 GLuint programID;
+
+GLuint uniformBuffer;
 UniformBufferData uniformData;
+
+BmVec4 camPos;
+float camRotation = 0.0f;
 
 std::vector<Mesh> meshList;
 
@@ -67,11 +76,8 @@ int main()
 	if (!InitializeGraphics())
 		return 0;
 
-	BmMat4 mvp;
-	mvp[0][0] = 1.0f;
-
 	// Load our model
-	BmModel<TestVert, uint16_t>* model = bmdl::LoadModel<TestVert, uint16_t>("resources/Pyramid.bmf");
+	BmModel<TestVert, uint16_t>* model = bmdl::LoadModel<TestVert, uint16_t>("resources/Angel.bmf");
 
 	// create meshes from model
 	for (uint32_t m = 0; m < model->meshList.count; m++)
@@ -79,16 +85,12 @@ int main()
 		BmMesh<TestVert, uint16_t>* curMesh = &model->meshList[m];
 
 		Mesh newMesh;
-		CreateMesh(&newMesh,
-				curMesh->vertices.data, curMesh->vertices.count,
-				curMesh->indices.data, curMesh->indices.count,
-				GL_DYNAMIC_DRAW);
+		CreateMesh(&newMesh, curMesh->vertices.data, curMesh->vertices.count, curMesh->indices.data, curMesh->indices.count, GL_DYNAMIC_DRAW);
 
 		meshList.push_back(newMesh);
-
-		printf("add mesh to draw %i, %i \n", curMesh->vertices.count, curMesh->indices.count);
 	}
 
+	camPos = BmVec4(0.0f, -2.0f, -4.0f, 0.0f);
 	// enter main loop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -96,14 +98,17 @@ int main()
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		// update view
+		camRotation += 0.2f;
+		uniformData.modelViewProjection = GetMVPMat(70.0f, static_cast<float>(XRES) / static_cast<float>(YRES), 0.001f, 1000.0f, camPos, camRotation);
+		UpdateBuffer(uniformBuffer, &uniformData, sizeof(UniformBufferData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
+
 		// draw model
 		glUseProgram(programID);
 		for (auto const& mesh : meshList)
 		{
 			Draw(mesh);
 		}
-
-		//Draw(testMesh);
 
 		glfwSwapBuffers(window);
 	}
@@ -152,7 +157,7 @@ bool InitializeGraphics()
 	// set depth state
 	glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_TRUE);
-	glDepthFunc(GL_GREATER);
+	glDepthFunc(GL_LESS);
 
 	// create Shader
 	GLuint vertexShader = CreateShaderObject(vertSource, GL_VERTEX_SHADER);
@@ -167,26 +172,11 @@ bool InitializeGraphics()
 	glLinkProgram(programID);
 	glUseProgram(programID);
 
-	// create our mesh
-	Vert quadVerts[] = {
-		{ -0.5f, -0.5f, 0.0f},
-		{  0.5f, -0.5f, 0.0f },
-		{  0.5f,  0.5f, 0.0f },
-		{ -0.5f,  0.5f, 0.0f },
-	};
-
-	uint16_t quadIndices[] = {
-		0, 1, 2,
-		0, 2, 3
-	};
-
-	CreateMesh(&testMesh, quadVerts, 4, quadIndices, 6, GL_DYNAMIC_DRAW);
-
 	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
+	//glDisable(GL_DEPTH_TEST);
 
 	// Create uniform buffer
-	GLuint uniformBuffer = CreateBuffer(&uniformData, sizeof(UniformBufferData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
+	uniformBuffer = CreateBuffer(&uniformData, sizeof(UniformBufferData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
 	glBindBufferRange(GL_UNIFORM_BUFFER, 0, uniformBuffer, 0, sizeof(UniformBufferData));
 
 	return true;
@@ -224,6 +214,8 @@ void CreateMesh(Mesh* mesh,
 	uint32_t offset = 0;
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, false, vertStride, (GLvoid*)offset);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, false, vertStride, (GLvoid*)(3*sizeof(float)));
 
 	// reset bound vao so that it is not modified
 	glBindVertexArray(0);
@@ -279,11 +271,67 @@ GLuint CreateBuffer(const void* data, uint32_t size, GLenum target, GLenum usage
 	return buffer;
 }
 
+void UpdateBuffer(GLuint buffer, const void* data, uint32_t size, GLenum target, GLenum usage)
+{
+	glBindBuffer(target, buffer);
+	glBufferData(target, size, data, usage);
+}
+
 static void ErrorCallback(int error, const char* description)
 {
 	fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+static BmMat4 GetMVPMat(float fovy, float aspect, float zNear, float zFar, BmVec4 translation, float rotation)
+{
+	// model
+	BmMat4 model = GetRotationMat(rotation, BmVec3(0.0f, 0.0f, 1.0f));
+
+	// view
+	BmMat4 viewTranslation;
+	viewTranslation[3][0] = translation.x;
+	viewTranslation[3][1] = translation.y;
+	viewTranslation[3][2] = translation.z;
+	BmMat4 viewRot = GetRotationMat(-70.0f, BmVec3(1.0f, 0.0f, 0.0f));
+	BmMat4 view = viewTranslation * viewRot;
+
+	// perspective projection
+	BmMat4 projection(0.0f);
+
+	float tanHalfFovy = tan((fovy * DEG2RAD) / 2.0f);
+
+	projection[0][0] = 1.0f / (aspect * tanHalfFovy);
+	projection[1][1] = 1.0f / (tanHalfFovy);
+	projection[2][2] = -(zFar + zNear) / (zFar - zNear);
+	projection[2][3] = -1.0f;
+	projection[3][2] = -(2.0f * zFar * zNear) / (zFar - zNear);
+
+	return projection * view * model;
+}
+
+static BmMat4 GetRotationMat(float angle, BmVec3 axis)
+{
+	float r = angle * DEG2RAD;
+	float c = cos(r);
+	float s = sin(r);
+
+	BmVec3 c1 = BmVec3(1.0f - c) * axis;
+
+	BmMat4 rot;
+	rot[0][0] = c + c1[0] * axis[0];
+	rot[0][1] = c1[0] * axis[1] + s * axis[2];
+	rot[0][2] = c1[0] * axis[2] - s * axis[1];
+
+	rot[1][0] = c1[1] * axis[0] - s * axis[2];
+	rot[1][1] = c + c1[1] * axis[1];
+	rot[1][2] = c1[1] * axis[2] + s * axis[0];
+
+	rot[2][0] = c1[2] * axis[0] + s * axis[1];
+	rot[2][1] = c1[2] * axis[1] - s * axis[0];
+	rot[2][2] = c + c1[2] * axis[2];
+
+	return rot;
+}
 
 /*
 

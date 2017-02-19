@@ -12,7 +12,7 @@ class BmList
 {
 public:
 
-	BmList() { count = capacity = 0; data = nullptr; printf("list_constructor\n");  }
+	BmList() { count = capacity = 0; data = nullptr; }
 	BmList(uint32_t size) : BmList() { reserve(size); }
 	BmList(T* newData, uint32_t length) : BmList() { setData(newData, length); }
 
