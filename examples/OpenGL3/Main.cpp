@@ -40,11 +40,12 @@ struct UniformBufferData
 	BmMat4 modelViewProjection;
 };
 
-bool		InitializeGraphics();
-void		Draw(const Mesh& mesh);
-void		CreateMesh(Mesh* mesh, const void* vertexData, uint32_t vertexCount, const void* indiceData, uint32_t indiceCount, GLenum usage);
-GLuint		CreateShaderObject(const char* source, GLenum shaderType);
-GLuint		CreateBuffer(const void* data, uint32_t size, GLenum target, GLenum usage);
+bool	InitializeGraphics();
+void	Draw(const Mesh& mesh);
+void	CreateMesh(Mesh* mesh, const void* vertexData, uint32_t vertexCount, const void* indiceData, uint32_t indiceCount, GLenum usage);
+GLuint	CreateShaderObject(const char* source, GLenum shaderType);
+GLuint	CreateBuffer(const void* data, uint32_t size, GLenum target, GLenum usage);
+
 static void ErrorCallback(int error, const char* description);
 
 GLFWwindow* window;
@@ -55,6 +56,12 @@ UniformBufferData uniformData;
 
 std::vector<Mesh> meshList;
 
+struct TestVert
+{
+	BmVec3 pos;
+	BmVec3 normal;
+};
+
 int main()
 {
 	if (!InitializeGraphics())
@@ -64,10 +71,23 @@ int main()
 	mvp[0][0] = 1.0f;
 
 	// Load our model
-	BmModel<BmVert, uint16_t>* model = bmdl::LoadModel("resources/Cube.bmf");
+	BmModel<TestVert, uint16_t>* model = bmdl::LoadModel<TestVert, uint16_t>("resources/Pyramid.bmf");
 
 	// create meshes from model
-	// ....
+	for (uint32_t m = 0; m < model->meshList.count; m++)
+	{
+		BmMesh<TestVert, uint16_t>* curMesh = &model->meshList[m];
+
+		Mesh newMesh;
+		CreateMesh(&newMesh,
+				curMesh->vertices.data, curMesh->vertices.count,
+				curMesh->indices.data, curMesh->indices.count,
+				GL_DYNAMIC_DRAW);
+
+		meshList.push_back(newMesh);
+
+		printf("add mesh to draw %i, %i \n", curMesh->vertices.count, curMesh->indices.count);
+	}
 
 	// enter main loop
 	while (!glfwWindowShouldClose(window))
@@ -77,12 +97,13 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// draw model
-		/*for (auto const& mesh : meshList)
+		glUseProgram(programID);
+		for (auto const& mesh : meshList)
 		{
 			Draw(mesh);
-		}*/
-		glUseProgram(programID);
-		Draw(testMesh);
+		}
+
+		//Draw(testMesh);
 
 		glfwSwapBuffers(window);
 	}
@@ -192,7 +213,7 @@ void CreateMesh(Mesh* mesh,
 	glBindVertexArray(mesh->vertexArrayID);
 
 	//uint32 stride = GetAttributeMaskSize(vertexAttributeFlags);
-	uint32_t vertStride = 3 * sizeof(float);
+	uint32_t vertStride = 6 * sizeof(float);
 	uint32_t indiceStride = sizeof(uint16_t);
 
 	// Create vertex and index buffers

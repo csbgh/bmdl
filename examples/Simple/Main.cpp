@@ -6,7 +6,11 @@
 
 int main()
 {
-	bmdl::LoadModel<BmVert, uint16_t>("sponza.bmf");
+	//bmdl::LoadModel<BmVert, uint16_t>("cube.bmf");
+	//system("pause");
+
+	// Current
+	BmModel<BmVert, uint16_t>* model = bmdl::LoadModel("resources/Cube.bmf");
 	system("pause");
 
 	/*BmModel* MyModel = bmdl::LoadModel("sponza.bmf");

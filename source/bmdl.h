@@ -6,8 +6,11 @@
 #define BM_FUNC_DECL
 
 // Forward Declarations
-template<typename V, typename I>
-struct BmModel;
+template<typename V = BmVert, typename I = uint16_t>
+class BmModel; 
+
+template<typename V = BmVert, typename I = uint16_t>
+class BmMesh;
 
 namespace bmdl
 {
@@ -86,7 +89,9 @@ namespace bmdl
 
 		if (fileData != nullptr)
 		{
-			return LoadModel(fileData, dataSize, vertLayout, interleaved);
+			BmModel<V,I>* newModel = LoadModel<V,I>(fileData, dataSize, vertLayout, interleaved);
+			// BM_FREE(fileData);
+			return newModel;
 		}
 		else
 		{
@@ -98,6 +103,8 @@ namespace bmdl
 	template<typename V = BmVert, typename I = uint16_t>
 	BM_FUNC_DECL BmModel<V, I>* LoadModel(uint8_t* fileData, uint32_t dataSize, BmVertLayout* vertLayout = &BmDefaultLayout, bool interleaved = true)
 	{
+		BmModel<V, I>* newModel = new BmModel<V, I>();
+
 		uint32_t readPos = 0;
 
 		// read Basic Model file header
@@ -150,7 +157,7 @@ namespace bmdl
 			{
 				case BmFileBlockType::MeshData:
 					blockTypeName = "Mesh";
-					ReadMeshBlock(fileData + readPos, fileBlock->blockLength);
+					ReadMeshBlock<V,I>(fileData + readPos, fileBlock->blockLength, newModel);
 				break;
 				default:
 					blockTypeName = "UNKNOWN";
@@ -165,10 +172,11 @@ namespace bmdl
 		printf("Read all blocks\n");
 		printf("Loaded Successfully ...\n");
 
-		return nullptr;
+		return newModel;
 	}
 
-	BM_FUNC_DECL bool ReadMeshBlock(uint8_t* data, uint32_t blockLength)
+	template<typename V = BmVert, typename I = uint16_t>
+	BM_FUNC_DECL bool ReadMeshBlock(uint8_t* data, uint32_t blockLength, BmModel<V, I> *model)
 	{
 		uint32_t readPos = 0;
 		BmMeshBlockHeader* meshBlock = reinterpret_cast<BmMeshBlockHeader*>(data);
@@ -177,6 +185,9 @@ namespace bmdl
 		// read all meshes
 		for (uint32_t m = 0; m < meshBlock->numMeshes; m++)
 		{
+			model->meshList.add(BmMesh<V, I>());
+			BmMesh<V, I>& newMesh = model->meshList.last();
+
 			BmMeshHeader* meshHeader = reinterpret_cast<BmMeshHeader*>(data + readPos);
 			readPos += sizeof(BmMeshHeader);
 
@@ -186,10 +197,18 @@ namespace bmdl
 				readPos += sizeof(BmSubMeshHeader);
 			}
 
+			// TODO : Properly calculate this
 			uint32_t bytesPerVert = 24;
 			uint32_t bytesPerIndx = 2;
 
+			// read vertex data
+			V* vertexData = reinterpret_cast<V*>(data + readPos);
+			newMesh.vertices.setData(vertexData, meshHeader->vertCount);
 			readPos += bytesPerVert * meshHeader->vertCount;	// vertices
+
+			// read index data
+			I* indexData = reinterpret_cast<I*>(data + readPos);
+			newMesh.indices.setData(indexData, meshHeader->indiceCount);
 			readPos += bytesPerIndx * meshHeader->indiceCount;	// indices
 
 			printf("Read Mesh with %i vertices, %i submeshes\n", meshHeader->vertCount, meshHeader->subMeshCount);
@@ -201,22 +220,39 @@ namespace bmdl
 	}
 }
 
-template<typename T>
-class BmList
-{
-
-};
-
-template<typename I = uint16_t>
 struct BmSubMesh
 {
-	uint16_t  vertexDataIndex;
-	BmList<I> indices;
+	uint32_t indexOffset;
+	uint32_t indexCount;
 };
 
 template<typename V = BmVert, typename I = uint16_t>
-struct BmModel
+class BmMesh
 {
-	BmList<V>			 vertices;
-	BmList<BmSubMesh<I>> subMeshList;
+public:
+
+	BmMesh() {} 
+
+	BmList<V> vertices; // interleaved vertex attributes
+	BmList<I> indices;  
+
+	BmList<BmSubMesh> subMeshList;
+
+	BmMat4 transform;
+
+private:
+
+
+};
+
+template<typename V = BmVert, typename I = uint16_t>
+class BmModel
+{
+public:
+
+	DECLARE_BM_ALLOCATOR()
+
+	BmModel() { }
+
+	BmList<BmMesh<V, I>> meshList;
 };
