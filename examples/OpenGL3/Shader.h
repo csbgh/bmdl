@@ -8,7 +8,7 @@ const static char *vertSource = \
 
 	"layout(std140) uniform uniformData"
 	"{"
-	"mat4 modelViewProjection;"
+		"mat4 modelViewProjection;"
 	"};"
 
 	"out vec3 normal;"

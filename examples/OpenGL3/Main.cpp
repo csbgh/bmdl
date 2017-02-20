@@ -1,28 +1,17 @@
-#include <stdio.h>
 #include <vector>
 
 #include <GL/glew.h>
 #include <GL/wglew.h>
 #include <GLFW/glfw3.h>
-
-#include "Shader.h"
-
 #include "bmdl.h"
+#include "Shader.h"
 
 #define XRES    1280
 #define YRES    720
 #define DEG2RAD 0.0174533f
 
-struct Vert
-{
-	float x, y, z;
-};
-
-struct SubMesh
-{
-	uint32_t offset;
-	uint32_t count;
-};
+struct Vert { BmVec3 pos; BmVec3 normal; };
+struct SubMesh { uint32_t offset; uint32_t count; };
 
 struct Mesh
 {
@@ -36,10 +25,7 @@ struct Mesh
 	std::vector<SubMesh> subMeshes;
 };
 
-struct UniformBufferData
-{
-	BmMat4 modelViewProjection;
-};
+struct UniformBufferData { BmMat4 modelViewProjection; };
 
 bool	InitializeGraphics();
 void	Draw(const Mesh& mesh);
@@ -54,22 +40,12 @@ static BmMat4 GetRotationMat(float angle, BmVec3 axis);
 
 GLFWwindow* window;
 GLuint shaderID;
-Mesh testMesh;
 GLuint programID;
 
 GLuint uniformBuffer;
 UniformBufferData uniformData;
 
-BmVec4 camPos;
-float camRotation = 0.0f;
-
 std::vector<Mesh> meshList;
-
-struct TestVert
-{
-	BmVec3 pos;
-	BmVec3 normal;
-};
 
 int main()
 {
@@ -77,12 +53,12 @@ int main()
 		return 0;
 
 	// Load our model
-	BmModel<TestVert, uint16_t>* model = bmdl::LoadModel<TestVert, uint16_t>("resources/Angel.bmf");
+	BmModel<Vert>* model = bmdl::LoadModel<Vert>("resources/Lara.bmf"); // TODO : Force setting layout argument, and maybe vert also...?
 
 	// create meshes from model
 	for (uint32_t m = 0; m < model->meshList.count; m++)
 	{
-		BmMesh<TestVert, uint16_t>* curMesh = &model->meshList[m];
+		BmMesh<Vert, uint16_t>* curMesh = &model->meshList[m];
 
 		Mesh newMesh;
 		CreateMesh(&newMesh, curMesh->vertices.data, curMesh->vertices.count, curMesh->indices.data, curMesh->indices.count, GL_DYNAMIC_DRAW);
@@ -90,7 +66,9 @@ int main()
 		meshList.push_back(newMesh);
 	}
 
-	camPos = BmVec4(0.0f, -2.0f, -4.0f, 0.0f);
+	BmVec4 camPos = BmVec4(0.0f, -2.15f, -4.0f, 1.0f);
+	float camRotation = 0.0f;
+
 	// enter main loop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -98,17 +76,15 @@ int main()
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// update view
+		// update camera view
 		camRotation += 0.2f;
 		uniformData.modelViewProjection = GetMVPMat(70.0f, static_cast<float>(XRES) / static_cast<float>(YRES), 0.001f, 1000.0f, camPos, camRotation);
 		UpdateBuffer(uniformBuffer, &uniformData, sizeof(UniformBufferData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
 
-		// draw model
+		// draw meshes of model
 		glUseProgram(programID);
 		for (auto const& mesh : meshList)
-		{
 			Draw(mesh);
-		}
 
 		glfwSwapBuffers(window);
 	}
@@ -121,12 +97,7 @@ int main()
 void Draw(const Mesh& mesh)
 {
 	glBindVertexArray(mesh.vertexArrayID);
-
-	uint32_t indexOffset = 0;
-	uint32_t vertexOffset = 0;
-
-	glDrawElementsBaseVertex(GL_TRIANGLES, mesh.indiceCount, GL_UNSIGNED_SHORT, (void*)(indexOffset * sizeof(GLushort)), vertexOffset);
-
+	glDrawElementsBaseVertex(GL_TRIANGLES, mesh.indiceCount, GL_UNSIGNED_SHORT, 0, 0);
 	glBindVertexArray(0);
 }
 
@@ -141,9 +112,10 @@ bool InitializeGraphics()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
 	// create new GLFW window and set the current OpenGL context
-	window = glfwCreateWindow(XRES, YRES, "BMDL OpenGL3 Example", NULL, NULL);
+	window = glfwCreateWindow(XRES, YRES, "BMDL - OpenGL3 Example", NULL, NULL);
 	glfwMakeContextCurrent(window);
 
 	// initialize glew exit if error
@@ -152,12 +124,9 @@ bool InitializeGraphics()
 		return false;
 
 	glViewport(0, 0, XRES, YRES);
-	glClearColor(0.15f, 0.15f, 0.15f, 1.0f);
 
-	// set depth state
+	// enable depth testing
 	glEnable(GL_DEPTH_TEST);
-	glDepthMask(GL_TRUE);
-	glDepthFunc(GL_LESS);
 
 	// create Shader
 	GLuint vertexShader = CreateShaderObject(vertSource, GL_VERTEX_SHADER);
@@ -172,9 +141,6 @@ bool InitializeGraphics()
 	glLinkProgram(programID);
 	glUseProgram(programID);
 
-	glDisable(GL_CULL_FACE);
-	//glDisable(GL_DEPTH_TEST);
-
 	// Create uniform buffer
 	uniformBuffer = CreateBuffer(&uniformData, sizeof(UniformBufferData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
 	glBindBufferRange(GL_UNIFORM_BUFFER, 0, uniformBuffer, 0, sizeof(UniformBufferData));
@@ -182,12 +148,7 @@ bool InitializeGraphics()
 	return true;
 }
 
-void CreateMesh(Mesh* mesh,
-				const void* vertexData,
-				uint32_t vertexCount,
-				const void* indiceData,
-				uint32_t indiceCount,
-				GLenum usage)
+void CreateMesh(Mesh* mesh, const void* vertexData, uint32_t vertexCount, const void* indiceData, uint32_t indiceCount, GLenum usage)
 {
 	if (!mesh)
 		return;
@@ -195,7 +156,7 @@ void CreateMesh(Mesh* mesh,
 	mesh->vertexCount = vertexCount;
 	mesh->indiceCount = indiceCount;
 
-	// clear binded vertex array object
+	// clear bound vertex array object
 	glBindVertexArray(0);
 
 	// create and bind a new VAO
@@ -211,10 +172,9 @@ void CreateMesh(Mesh* mesh,
 	mesh->indexBuffer = CreateBuffer(indiceData, indiceCount * indiceStride, GL_ELEMENT_ARRAY_BUFFER, usage);
 
 	// set vertex attributes
-	uint32_t offset = 0;
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, false, vertStride, (GLvoid*)offset);
-	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(0); // position
+	glVertexAttribPointer(0, 3, GL_FLOAT, false, vertStride, (GLvoid*)0);
+	glEnableVertexAttribArray(1); // normal
 	glVertexAttribPointer(1, 3, GL_FLOAT, false, vertStride, (GLvoid*)(3*sizeof(float)));
 
 	// reset bound vao so that it is not modified
@@ -235,38 +195,15 @@ GLuint CreateShaderObject(const char* source, GLenum shaderType)
 	glShaderSource(shaderID, 1, &shaderSource, nullptr);
 	glCompileShader(shaderID);
 
-	// check the result of the shaders compilation
-	GLint result = GL_FALSE;
-	GLint infoLength = 0;
-
-	glGetShaderiv(shaderID, GL_COMPILE_STATUS, &result);
-	glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &infoLength);
-
-	// output information from the compilation of the shader if there is any
-	if (infoLength > 0)
-	{
-		GLchar *infoLog = new GLchar[infoLength];
-		glGetShaderInfoLog(shaderID, infoLength, NULL, infoLog);
-
-		printf("============== Shader Object Log =============\n");
-		printf("Shader : \n%s", infoLog);
-		printf("==============================================\n");
-
-		delete[] infoLog;
-	}
-
 	return shaderID;
 }
 
+// generate new buffer and fill it with data
 GLuint CreateBuffer(const void* data, uint32_t size, GLenum target, GLenum usage)
 {
-	// generate and bind new buffer
 	GLuint buffer;
 	glGenBuffers(1, &buffer);
-	glBindBuffer(target, buffer);
-
-	// fill buffer
-	glBufferData(target, size, data, usage);
+	UpdateBuffer(buffer, data, size, target, usage);
 
 	return buffer;
 }
@@ -289,9 +226,7 @@ static BmMat4 GetMVPMat(float fovy, float aspect, float zNear, float zFar, BmVec
 
 	// view
 	BmMat4 viewTranslation;
-	viewTranslation[3][0] = translation.x;
-	viewTranslation[3][1] = translation.y;
-	viewTranslation[3][2] = translation.z;
+	viewTranslation[3] = translation;
 	BmMat4 viewRot = GetRotationMat(-70.0f, BmVec3(1.0f, 0.0f, 0.0f));
 	BmMat4 view = viewTranslation * viewRot;
 
@@ -332,36 +267,3 @@ static BmMat4 GetRotationMat(float angle, BmVec3 axis)
 
 	return rot;
 }
-
-/*
-
-static const char *getGLErrorString(GLenum err)
-{
-switch (err)
-{
-case GL_NO_ERROR: return "GL_NO_ERROR";
-case GL_INVALID_ENUM: return "GL_INVALID_ENUM";
-case GL_INVALID_VALUE: return "GL_INVALID_VALUE";
-case GL_INVALID_OPERATION: return "GL_INVALID_OPERATION";
-case GL_INVALID_FRAMEBUFFER_OPERATION: return "GL_INVALID_FRAMEBUFFER_OPERATION";
-case GL_OUT_OF_MEMORY: return "GL_OUT_OF_MEMORY";
-case GL_STACK_UNDERFLOW: return"GL_STACK_UNDERFLOW";
-case GL_STACK_OVERFLOW: return "GL_STACK_OVERFLOW";
-default:
-return "UNKNOWN_ERROR";
-}
-}
-
-static void logGLError(const char *msg)
-{
-GLenum err = glGetError();
-
-if (err == GL_NO_ERROR)
-{
-printf(msg);
-return;
-}
-
-printf("GL3 : %s : [%s]", msg, getGLErrorString(err));
-}
-*/
