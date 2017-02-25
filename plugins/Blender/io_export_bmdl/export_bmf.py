@@ -487,7 +487,8 @@ class BmMesh(object):
             # TODO : don't use defaultdict?
             submesh = self.submeshes[face.material_index]
             indices = submesh.indices
-            submesh.material_name = mesh.materials[face.material_index].name
+            if len(mesh.materials) > 0 and face.material_index < len(mesh.materials):
+                submesh.material_name = mesh.materials[face.material_index].name
             
             if len(f_idx) == 3: # triangulated face
                 indices.extend(f_idx)
