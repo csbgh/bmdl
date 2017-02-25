@@ -249,13 +249,13 @@ class BmSubMesh(object):
     def write_indices(self, stream, indiceType):
         if(indiceType == BmIndexType.UInt16):
             for i in self.indices:
-                stream.write_uint16(i)
+                stream.write_uint16(min(i, 0xFFFF))
         elif(indiceType == BmIndexTypeUInt32):
             for i in self.indices:
                 stream.write_uint32(i)
         elif(indiceType == BmIndexTypeUInt8):
             for i in self.indices:
-                stream.write_uint8(i)
+                stream.write_uint8(min(i, 0xFF))
         
 class VertPermutation(object):
     __slots__ = "orig_face", "vert_pos", "shared_indices"
@@ -479,7 +479,6 @@ class BmMesh(object):
         
     def _get_submeshes(self):
         mesh = self.mesh
-        #self.submeshes = defaultdict(BmSubMesh)
         
         for f, face in enumerate(mesh.tessfaces):
             f_idx = face.vertices # retrieve index list for face
