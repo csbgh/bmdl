@@ -198,7 +198,7 @@ namespace bmdl
 			}
 
 			// TODO : Properly calculate this
-			uint32_t bytesPerVert = 24;
+			uint32_t bytesPerVert = sizeof(V);
 			uint32_t bytesPerIndx = 2;
 
 			// read vertex data

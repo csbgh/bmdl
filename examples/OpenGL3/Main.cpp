@@ -6,11 +6,11 @@
 #include "bmdl.h"
 #include "Shader.h"
 
-#define XRES    1280
-#define YRES    720
+#define XRES    1680
+#define YRES    1050
 #define DEG2RAD 0.0174533f
 
-struct Vert { BmVec3 pos; BmVec3 normal; };
+struct Vert { BmVec3 pos; BmVec3 normal; BmVec2 uv; };
 struct SubMesh { uint32_t offset; uint32_t count; };
 
 struct Mesh
@@ -52,8 +52,9 @@ int main()
 	if (!InitializeGraphics())
 		return 0;
 
-	// Load our model
-	BmModel<Vert>* model = bmdl::LoadModel<Vert>("resources/Lara.bmf"); // TODO : Force setting layout argument, and maybe vert also...?
+	// Load our model, read/store vertices interleaved that is the attributes for each vertex are stored like :- 
+	// {[pos, normal, uv],[pos, normal, uv]} rather than non-interleaved where values are stored seperately like {[pos, pos, pos] [normal, normal, normal] [uv, uv, uv]}
+	auto* model = bmdl::LoadModel<Vert>("resources/Angel.bmf"); // TODO : Force setting layout argument, and maybe vert also...?
 
 	// create meshes from model
 	for (uint32_t m = 0; m < model->meshList.count; m++)
@@ -164,7 +165,7 @@ void CreateMesh(Mesh* mesh, const void* vertexData, uint32_t vertexCount, const 
 	glBindVertexArray(mesh->vertexArrayID);
 
 	//uint32 stride = GetAttributeMaskSize(vertexAttributeFlags);
-	uint32_t vertStride = 6 * sizeof(float);
+	uint32_t vertStride = sizeof(Vert);
 	uint32_t indiceStride = sizeof(uint16_t);
 
 	// Create vertex and index buffers
@@ -176,6 +177,8 @@ void CreateMesh(Mesh* mesh, const void* vertexData, uint32_t vertexCount, const 
 	glVertexAttribPointer(0, 3, GL_FLOAT, false, vertStride, (GLvoid*)0);
 	glEnableVertexAttribArray(1); // normal
 	glVertexAttribPointer(1, 3, GL_FLOAT, false, vertStride, (GLvoid*)(3*sizeof(float)));
+	glEnableVertexAttribArray(2); // uv
+	glVertexAttribPointer(2, 2, GL_FLOAT, false, vertStride, (GLvoid*)(6 * sizeof(float)));
 
 	// reset bound vao so that it is not modified
 	glBindVertexArray(0);

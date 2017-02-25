@@ -128,7 +128,6 @@ class ExportBMF(bpy.types.Operator, ExportHelper, IO3DSOrientationHelper):
                                             "indice_type",
                                             "position",
                                             "normals",
-                                            "uv_channels",
                                             "color_channels"
                                             ))
         global_matrix = axis_conversion(to_forward=self.axis_forward,

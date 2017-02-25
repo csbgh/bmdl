@@ -238,7 +238,6 @@ class BmSubMesh(object):
     
     def __init__(self):
         self.indices = []
-        #self.texcoords = []
         self.material_name = ""
         self.material = None
         
@@ -306,11 +305,9 @@ class UniqueVert(object):
                 
                 # check if all uv channels for this indice match the current values for the vertex
                 if normal_match:
-                    uv_match = True
                     for uv_channel in mesh.tessface_uv_textures:
                         uv = uv_channel.data[orig_face].uv[vert_pos]
                         perm_uv = uv_channel.data[perm.orig_face].uv[perm.vert_pos]
-                        
                         if uv[0] != perm_uv[0] or uv[1] != perm_uv[1]:
                             uv_match = False
                             break
@@ -326,15 +323,18 @@ class UniqueVert(object):
                 
                 if normal_match and uv_match and color_match:
                     unique = False
+                    perm.add_indice(bm_face, vert_pos)
                     break
             
             if unique:
-                self.permutations.append(VertPermutation(orig_face, vert_pos))
-
-            perm.add_indice(bm_face, vert_pos)
+                perm = VertPermutation(orig_face, vert_pos)
+                self.permutations.append(perm)
+                perm.add_indice(bm_face, vert_pos)
         
         else:
-            self.permutations.append(VertPermutation(orig_face, vert_pos))
+            perm = VertPermutation(orig_face, vert_pos)
+            self.permutations.append(perm)
+            perm.add_indice(bm_face, vert_pos)
 
 class BmVert(object):
 
@@ -356,12 +356,12 @@ class BmFace(object):
     
 class BmMesh(object):
 
-    def __init__(self, obj, mesh, matrix):
-        # self.header = BmMeshHeader()
+    def __init__(self, obj, mesh, matrix, uv_channels):
         self.mesh = mesh
         self.submeshes = defaultdict(BmSubMesh)
         self.vertices = []
-
+        self.num_uv_channels = uv_channels
+        
         self._permutations = []
         
         # properties
@@ -396,8 +396,8 @@ class BmMesh(object):
                 stream.write(self.vertices[i].normal)
                 for uv in self.vertices[i].uv_channels:
                     stream.write(uv)
-                for color in self.vertices[i].color_channels:
-                    stream.write(color)
+                #for color in self.vertices[i].color_channels:
+                #    stream.write(color)
                     
         # write indice data
         for sm, submesh in self.submeshes.items():
@@ -436,19 +436,11 @@ class BmMesh(object):
         for vert in mesh.vertices:
             pos = Vec3(vert.co[0], vert.co[1], vert.co[2])
             normal = Vec3(vert.normal[0], vert.normal[1], vert.normal[2])
-            self._add_vertex(pos, normal, len(self.mesh.tessface_uv_textures), len(self.mesh.tessface_vertex_colors))
+            self._add_vertex(pos, normal, len(self.mesh.tessface_vertex_colors))
             
-        time1 = time.clock()
         self._extract_faces()
-        #print("extract_faces: %.2f" % (time.clock() - time1))
-        
-        time1 = time.clock()
         self._split_unique_verts()
-        #print("split_verts : %.2f" % (time.clock() - time1))
-        
-        time1 = time.clock()
         self._get_submeshes()
-        #print("get_submeshes: %.2f" % (time.clock() - time1))
         
     def _extract_faces(self):
         mesh = self.mesh
@@ -527,12 +519,12 @@ class BmMesh(object):
     def _clone_vertex(self, index):
         pos = self.vertices[index].pos
         normal = self.vertices[index].normal
-        self._add_vertex(pos, normal, len(self.mesh.tessface_uv_textures), len(self.mesh.tessface_vertex_colors))
+        self._add_vertex(pos, normal, len(self.mesh.tessface_vertex_colors))
         return len(self.vertices) - 1
         
-    def _add_vertex(self, pos, normal, num_uv_channels, num_color_channels):
+    def _add_vertex(self, pos, normal, num_color_channels):
         uv_channels = []
-        for uv_channel in self.mesh.tessface_uv_textures:
+        for uvc in range(0, self.num_uv_channels):
             uv_channels.append(Vec2(0,0))
         
         color_channels = []
@@ -547,6 +539,7 @@ def write_file(operator,
                 context, filepath="",
                 export_selected=True,
                 global_matrix=None,
+				uv_channels=0,
                 ):
     
     # TODO: build vertex attributes from these options
@@ -609,7 +602,7 @@ def write_file(operator,
      
     bm_mesh_list = []
     for obj, mesh, matrix in mesh_list:
-        new_mesh = BmMesh(obj, mesh, matrix)
+        new_mesh = BmMesh(obj, mesh, matrix, uv_channels)
         bm_mesh_list.append(new_mesh)
 
     write_mesh_block(bm_mesh_list, mesh_block_stream)
